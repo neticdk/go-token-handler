@@ -1,0 +1,10 @@
+listenAddr: ':8081'
+hashKey: 'bCXgBjNPIeAUDzTYKf4E2xXNZaznkyTjQT7zh/UXJcz3CsPMu3FFoxG4WqcQY3foPmKtAdexMLXJ5L3vJkn1og=='
+blockKey: 'Cl/c1FWNiCDp32/FhpGgzgqUIcLdYScHa+AiLG2gWFI='
+providers:
+  netic:
+    clientID: inventory
+    clientSecret: ${NETIC_SECRET}
+    issuer: http://localhost:8080/realms/test
+upstreams:
+  api: http://localhost:8086

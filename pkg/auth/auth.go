@@ -1,0 +1,211 @@
+package auth
+
+import (
+	"encoding/gob"
+	"fmt"
+	"net/http"
+
+	"github.com/google/uuid"
+	"github.com/gorilla/sessions"
+	"github.com/labstack/echo-contrib/session"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	"github.com/neticdk/go-token-handler/pkg/pkce"
+	"golang.org/x/oauth2"
+)
+
+const (
+	CookieTokenName = "token"
+
+	sessionKeyProvider = "provider"
+	sessionKeyToken    = "token"
+
+	authState = "state"
+)
+
+func RegisterAuthEndpoint(e *echo.Echo, hashKey, blockKey []byte, providers map[string]*oauth2.Config, origins []string) echo.MiddlewareFunc {
+	a := &auth{
+		providers: providers,
+	}
+
+	g := e.Group("/auths", middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins:     origins,
+		AllowMethods:     []string{http.MethodPut, http.MethodPost},
+		AllowCredentials: true,
+	}))
+
+	g.OPTIONS("", func(c echo.Context) error { c.NoContent(http.StatusNoContent); return nil })
+	g.POST("", a.createAuth)
+	g.PUT("/:state", a.updateAuth)
+
+	return a.AuthMiddleware()
+}
+
+type auth struct {
+	providers map[string]*oauth2.Config
+}
+
+type authentication struct {
+	Idp      string
+	Verifier *pkce.CodeVerifier
+	Path     string
+}
+
+type AuthResource struct {
+	Idp              string `json:"idp"`
+	Path             string `json:"path,omitempty"`
+	AuthorizationURL string `json:"authorizationUrl,omitempty"`
+	Code             string `json:"code,omitempty"`
+}
+
+func (a *auth) AuthMiddleware() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			s, err := session.Get(CookieTokenName, c)
+			if err != nil {
+				c.NoContent(http.StatusInternalServerError)
+				return fmt.Errorf("unable to get session: %w", err)
+			}
+
+			token, ok := s.Values[sessionKeyToken].(oauth2.Token)
+			if !ok {
+				c.NoContent(http.StatusUnauthorized)
+				return fmt.Errorf("unable to get token from session")
+			}
+
+			idp, ok := s.Values[sessionKeyProvider].(string)
+			if !ok {
+				c.NoContent(http.StatusInternalServerError)
+				return fmt.Errorf("unable to find idp in session")
+			}
+			p, ok := a.providers[idp]
+			if !ok {
+				c.NoContent(http.StatusInternalServerError)
+				return fmt.Errorf("unable to find idp %s in configured providers", idp)
+			}
+
+			ts := p.TokenSource(c.Request().Context(), &token)
+			t, err := ts.Token()
+			if err != nil {
+				c.NoContent(http.StatusUnauthorized)
+				return fmt.Errorf("unable to get access token: %w", err)
+			}
+			t.SetAuthHeader(c.Request())
+
+			return next(c)
+		}
+	}
+}
+
+func init() {
+	gob.Register(authentication{})
+	gob.Register(oauth2.Token{})
+}
+
+func (a *auth) createAuth(c echo.Context) error {
+	payload := AuthResource{}
+	err := c.Bind(&payload)
+	if err != nil {
+		return fmt.Errorf("unable to parse payload: %w", err)
+	}
+
+	codeVerifier, err := pkce.NewCodeVerifier()
+	if err != nil {
+		return fmt.Errorf("unable to create code verifier: %w", err)
+	}
+
+	au := authentication{
+		Verifier: codeVerifier,
+		Idp:      payload.Idp,
+		Path:     payload.Path,
+	}
+
+	state := uuid.New().String()
+	s, err := session.Get(state, c)
+	if err != nil {
+		return err
+	}
+	s.Options = &sessions.Options{
+		Secure:   true,
+		MaxAge:   300,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		Path:     "/auths",
+	}
+	s.Values[authState] = au
+	err = s.Save(c.Request(), c.Response())
+	if err != nil {
+		return fmt.Errorf("unable to store authetication session: %w", err)
+	}
+
+	p, ok := a.providers[au.Idp]
+	if !ok {
+		return fmt.Errorf("unable to find idp: %s", au.Idp)
+	}
+
+	payload.AuthorizationURL = p.AuthCodeURL(state, au.Verifier.CodeChallengeOptions()...)
+
+	c.JSON(http.StatusCreated, payload)
+
+	return nil
+}
+
+func (a *auth) updateAuth(c echo.Context) error {
+	payload := AuthResource{}
+	err := c.Bind(&payload)
+	if err != nil {
+		return err
+	}
+
+	state := c.Param("state")
+	s, err := session.Get(state, c)
+	if err != nil {
+		return fmt.Errorf("unable to retrieve authentication session %s: %w", state, err)
+	}
+
+	au, ok := s.Values[authState].(authentication)
+	if !ok {
+		return fmt.Errorf("unable to read back authentication information from session")
+	}
+
+	p, ok := a.providers[au.Idp]
+	if !ok {
+		return fmt.Errorf("unable to find idp: %s", au.Idp)
+	}
+
+	token, err := p.Exchange(c.Request().Context(), payload.Code, au.Verifier.VerifierOptions()...)
+	if err != nil {
+		return fmt.Errorf("unable to retrive access token from identity provider: %w", err)
+	}
+
+	ts, err := session.Get(CookieTokenName, c)
+	if err != nil {
+		return fmt.Errorf("unable to get session for token: %w", err)
+	}
+	ts.Options = &sessions.Options{
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		Path:     "/",
+		MaxAge:   86400 * 30,
+	}
+	ts.Values[sessionKeyToken] = token
+	ts.Values[sessionKeyProvider] = au.Idp
+	err = ts.Save(c.Request(), c.Response())
+	if err != nil {
+		return fmt.Errorf("unable to save token session cookie: %w", err)
+	}
+
+	s.Options = &sessions.Options{MaxAge: -1}
+	err = s.Save(c.Request(), c.Response())
+	if err != nil {
+		return fmt.Errorf("unable to remove auth session: %w", err)
+	}
+
+	c.JSON(http.StatusOK, AuthResource{
+		Idp:  au.Idp,
+		Path: au.Path,
+	})
+
+	return nil
+}
