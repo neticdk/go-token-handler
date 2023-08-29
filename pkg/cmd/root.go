@@ -141,26 +141,26 @@ func init() {
 	rootCmd.PersistentFlags().IntVarP(&logLevel, "v", "v", 4, "Log level verbosity 0 is only panic level and 6 is trace level")
 
 	rootCmd.Flags().String("address", "", "Listen address (LISTEN_ADDRESS)")
-	viper.BindPFlag(listenAddr, rootCmd.Flags().Lookup("address"))
-	viper.BindEnv(listenAddr, "LISTEN_ADDRESS")
+	_ = viper.BindPFlag(listenAddr, rootCmd.Flags().Lookup("address"))
+	_ = viper.BindEnv(listenAddr, "LISTEN_ADDRESS")
 	viper.SetDefault(listenAddr, ":8080")
 
 	rootCmd.Flags().String("hash-key", "", "Key used to sign cookie content (HASH_KEY)")
-	viper.BindPFlag(hashKey, rootCmd.Flags().Lookup("hash-key"))
-	viper.BindEnv(hashKey, "HASH_KEY")
+	_ = viper.BindPFlag(hashKey, rootCmd.Flags().Lookup("hash-key"))
+	_ = viper.BindEnv(hashKey, "HASH_KEY")
 
 	rootCmd.Flags().String("block-key", "", "Key used to encrypt cookie content (BLOCK_KEY)")
-	viper.BindPFlag(blockKey, rootCmd.Flags().Lookup("block-key"))
-	viper.BindEnv(blockKey, "BLOCK_KEY")
+	_ = viper.BindPFlag(blockKey, rootCmd.Flags().Lookup("block-key"))
+	_ = viper.BindEnv(blockKey, "BLOCK_KEY")
 
 	rootCmd.Flags().StringSliceP("origin", "o", []string{}, "Origins to set for CORS (ORIGINS) - default: http://localhost:3000")
-	viper.BindPFlag(origins, rootCmd.Flags().Lookup("origin"))
-	viper.BindEnv(origins)
+	_ = viper.BindPFlag(origins, rootCmd.Flags().Lookup("origin"))
+	_ = viper.BindEnv(origins)
 	viper.SetDefault(origins, "http://localhost:3000")
 
 	rootCmd.Flags().String("redirect-url", "", "Redirect URL for authentication (required if multiple are registeret with identity server) (REDIRECT_URL)")
-	viper.BindPFlag(redirectURL, rootCmd.Flags().Lookup("redirect-url"))
-	viper.BindEnv(redirectURL, "REDIRECT_URL")
+	_ = viper.BindPFlag(redirectURL, rootCmd.Flags().Lookup("redirect-url"))
+	_ = viper.BindEnv(redirectURL, "REDIRECT_URL")
 
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
