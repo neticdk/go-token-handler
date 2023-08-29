@@ -34,7 +34,7 @@ func RegisterAuthEndpoint(e *echo.Echo, hashKey, blockKey []byte, providers map[
 		AllowCredentials: true,
 	}))
 
-	g.OPTIONS("", func(c echo.Context) error { c.NoContent(http.StatusNoContent); return nil })
+	g.OPTIONS("", func(c echo.Context) error { _ = c.NoContent(http.StatusNoContent); return nil })
 	g.POST("", a.createAuth)
 	g.PUT("/:state", a.updateAuth)
 
@@ -63,31 +63,31 @@ func (a *auth) AuthMiddleware() echo.MiddlewareFunc {
 		return func(c echo.Context) error {
 			s, err := session.Get(CookieTokenName, c)
 			if err != nil {
-				c.NoContent(http.StatusInternalServerError)
+				_ = c.NoContent(http.StatusInternalServerError)
 				return fmt.Errorf("unable to get session: %w", err)
 			}
 
 			token, ok := s.Values[sessionKeyToken].(oauth2.Token)
 			if !ok {
-				c.NoContent(http.StatusUnauthorized)
+				_ = c.NoContent(http.StatusUnauthorized)
 				return fmt.Errorf("unable to get token from session")
 			}
 
 			idp, ok := s.Values[sessionKeyProvider].(string)
 			if !ok {
-				c.NoContent(http.StatusInternalServerError)
+				_ = c.NoContent(http.StatusInternalServerError)
 				return fmt.Errorf("unable to find idp in session")
 			}
 			p, ok := a.providers[idp]
 			if !ok {
-				c.NoContent(http.StatusInternalServerError)
+				_ = c.NoContent(http.StatusInternalServerError)
 				return fmt.Errorf("unable to find idp %s in configured providers", idp)
 			}
 
 			ts := p.TokenSource(c.Request().Context(), &token)
 			t, err := ts.Token()
 			if err != nil {
-				c.NoContent(http.StatusUnauthorized)
+				_ = c.NoContent(http.StatusUnauthorized)
 				return fmt.Errorf("unable to get access token: %w", err)
 			}
 			t.SetAuthHeader(c.Request())
@@ -145,7 +145,10 @@ func (a *auth) createAuth(c echo.Context) error {
 
 	payload.AuthorizationURL = p.AuthCodeURL(state, au.Verifier.CodeChallengeOptions()...)
 
-	c.JSON(http.StatusCreated, payload)
+	err = c.JSON(http.StatusCreated, payload)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -202,10 +205,13 @@ func (a *auth) updateAuth(c echo.Context) error {
 		return fmt.Errorf("unable to remove auth session: %w", err)
 	}
 
-	c.JSON(http.StatusOK, AuthResource{
+	err = c.JSON(http.StatusOK, AuthResource{
 		Idp:  au.Idp,
 		Path: au.Path,
 	})
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
