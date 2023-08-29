@@ -28,6 +28,7 @@ const (
 	redirectURL = "redirectURL"
 	providers   = "providers"
 	upstreams   = "upstreams"
+	sessionPath = "sessionPath"
 )
 
 type provider struct {
@@ -66,7 +67,7 @@ var (
 			if err != nil {
 				return err
 			}
-			fs := sessions.NewFilesystemStore("", hashKey, blockKey)
+			fs := sessions.NewFilesystemStore(viper.GetString(sessionPath), hashKey, blockKey)
 			fs.MaxLength(0)
 			e.Use(session.Middleware(fs))
 
@@ -161,6 +162,11 @@ func init() {
 	rootCmd.Flags().String("redirect-url", "", "Redirect URL for authentication (required if multiple are registeret with identity server) (REDIRECT_URL)")
 	_ = viper.BindPFlag(redirectURL, rootCmd.Flags().Lookup("redirect-url"))
 	_ = viper.BindEnv(redirectURL, "REDIRECT_URL")
+
+	rootCmd.Flags().String("session-path", "", "Path to store encrypted session data (SESSION_PATH)")
+	_ = viper.BindPFlag(sessionPath, rootCmd.Flags().Lookup("session-path"))
+	_ = viper.BindEnv(sessionPath, "SESSION_PATH")
+	viper.SetDefault(sessionPath, "")
 
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
