@@ -165,7 +165,7 @@ func init() {
 
 	rootCmd.Flags().String("session-path", "", "Path to store encrypted session data (SESSION_PATH)")
 	_ = viper.BindPFlag(sessionPath, rootCmd.Flags().Lookup("session-path"))
-	_ = viper.BindEnv(redirectURL, "SESSION_PATH")
+	_ = viper.BindEnv(sessionPath, "SESSION_PATH")
 	viper.SetDefault(sessionPath, "")
 
 	viper.SetConfigName("config")
