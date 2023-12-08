@@ -8,3 +8,7 @@ providers:
     issuer: http://localhost:8080/realms/test
 upstreams:
   api: http://localhost:8086
+origins:
+  - "http://localhost:8085"
+  - "http://localhost:3000"
+redirectURL: "http://localhost:3000/customers/callback"
