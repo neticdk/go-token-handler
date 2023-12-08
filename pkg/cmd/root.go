@@ -88,6 +88,7 @@ var (
 					ClientSecret: p.ClientSecret,
 					Endpoint:     provider.Endpoint(),
 					RedirectURL:  viper.GetString(redirectURL),
+					Scopes:       []string{"openid", "offline_access"},
 				}
 			}
 
