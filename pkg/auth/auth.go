@@ -11,6 +11,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/neticdk/go-token-handler/pkg/pkce"
+	"github.com/rs/zerolog"
 	"golang.org/x/oauth2"
 )
 
@@ -180,6 +181,8 @@ func (a *auth) updateAuth(c echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("unable to retrive access token from identity provider: %w", err)
 	}
+	logger := zerolog.Ctx(c.Request().Context())
+	logger.Trace().Str("type", token.Type()).Msg("received token from idp")
 
 	ts, err := session.Get(CookieTokenName, c)
 	if err != nil {

@@ -15,12 +15,15 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/mitchellh/mapstructure"
 	"github.com/neticdk/go-token-handler/pkg/auth"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
 )
 
 const (
+	logLevel    = "logLevel"
 	listenAddr  = "listenAddr"
 	hashKey     = "hashKey"
 	blockKey    = "blockKey"
@@ -35,17 +38,20 @@ type provider struct {
 	Issuer       string
 	ClientID     string
 	ClientSecret string
+	Scopes       []string
 }
 
 var (
-	logLevel int
-	cfgFile  string
+	cfgFile string
 
 	rootCmd = &cobra.Command{
 		Use:   "token-handler",
 		Short: "Handling secure OAuth 2.0 authentication for single page apps",
 		Long:  "The token-handler is a utility to act as a server-side secure storage of OAuth 2.0 tokens for single page applications.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// zerolog log-levels are reverse to e.g. logrus
+			zerolog.SetGlobalLevel(zerolog.Level(5 - viper.GetInt(logLevel)))
+
 			if cfgFile != "" {
 				viper.SetConfigFile(cfgFile)
 			}
@@ -57,7 +63,39 @@ var (
 			e := echo.New()
 			e.Debug = true
 			e.HideBanner = true
-			e.Use(middleware.Logger())
+			e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+				return func(c echo.Context) error {
+					ctx := log.Logger.WithContext(c.Request().Context())
+					req := c.Request().Clone(ctx)
+					c.SetRequest(req)
+					return next(c)
+				}
+			})
+			e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+				LogURI:       true,
+				LogStatus:    true,
+				LogMethod:    true,
+				LogHost:      true,
+				LogUserAgent: true,
+				LogError:     true,
+				LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+					logger := zerolog.Ctx(c.Request().Context())
+					ev := logger.Info().
+						Str("URI", v.URI).
+						Int("status", v.Status).
+						Str("method", v.Method).
+						Str("host", v.Host).
+						Str("user_agent", v.UserAgent)
+
+					if v.Error != nil {
+						ev = ev.Err(v.Error)
+					}
+
+					ev.Msg("request")
+
+					return nil
+				},
+			}))
 
 			hashKey, err := base64.StdEncoding.DecodeString(viper.GetString(hashKey))
 			if err != nil {
@@ -83,12 +121,13 @@ var (
 				if err != nil {
 					return err
 				}
+				scopes := append([]string{"openid", "offline_access"}, p.Scopes...)
 				ps[n] = &oauth2.Config{
 					ClientID:     p.ClientID,
 					ClientSecret: p.ClientSecret,
 					Endpoint:     provider.Endpoint(),
 					RedirectURL:  viper.GetString(redirectURL),
-					Scopes:       []string{"openid", "offline_access"},
+					Scopes:       scopes,
 				}
 			}
 
@@ -140,7 +179,11 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "Configuration file")
-	rootCmd.PersistentFlags().IntVarP(&logLevel, "v", "v", 4, "Log level verbosity 0 is only panic level and 6 is trace level")
+
+	rootCmd.PersistentFlags().IntP("v", "v", 4, "Log level verbosity 0 is only panic level and 6 is trace level")
+	_ = viper.BindPFlag(logLevel, rootCmd.PersistentFlags().Lookup("v"))
+	_ = viper.BindEnv(logLevel, "LOG_LEVEL")
+	viper.SetDefault(logLevel, 4)
 
 	rootCmd.Flags().String("address", "", "Listen address (LISTEN_ADDRESS)")
 	_ = viper.BindPFlag(listenAddr, rootCmd.Flags().Lookup("address"))
