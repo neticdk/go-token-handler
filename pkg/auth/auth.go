@@ -18,6 +18,7 @@ import (
 const (
 	CookieTokenName = "token"
 
+	sessionKeyID       = "id"
 	sessionKeyProvider = "provider"
 	sessionKeyToken    = "token"
 
@@ -36,8 +37,10 @@ func RegisterAuthEndpoint(e *echo.Echo, hashKey, blockKey []byte, providers map[
 	}))
 
 	g.OPTIONS("", func(c echo.Context) error { _ = c.NoContent(http.StatusNoContent); return nil })
+	g.GET("", a.listAuth)
 	g.POST("", a.createAuth)
 	g.PUT("/:state", a.updateAuth)
+	g.DELETE("/:state", a.delete)
 
 	return a.AuthMiddleware()
 }
@@ -53,6 +56,7 @@ type authentication struct {
 }
 
 type AuthResource struct {
+	ID               string `json:"id,omitempty"`
 	Idp              string `json:"idp"`
 	Path             string `json:"path,omitempty"`
 	AuthorizationURL string `json:"authorizationUrl,omitempty"`
@@ -195,6 +199,7 @@ func (a *auth) updateAuth(c echo.Context) error {
 		Path:     "/",
 		MaxAge:   86400 * 30,
 	}
+	ts.Values[sessionKeyID] = state
 	ts.Values[sessionKeyToken] = token
 	ts.Values[sessionKeyProvider] = au.Idp
 	err = ts.Save(c.Request(), c.Response())
@@ -217,4 +222,71 @@ func (a *auth) updateAuth(c echo.Context) error {
 	}
 
 	return nil
+}
+
+func (a *auth) listAuth(c echo.Context) error {
+	type list struct {
+		Count    int           `json:"count"`
+		Auths    []string      `json:"auths"`
+		Included []interface{} `json:"@included,omitempty"`
+	}
+
+	s, err := session.Get(CookieTokenName, c)
+	if err != nil {
+		_ = c.NoContent(http.StatusInternalServerError)
+		return fmt.Errorf("unable to get session: %w", err)
+	}
+
+	l := &list{
+		Count: 0,
+		Auths: []string{},
+	}
+
+	id, ok := s.Values[sessionKeyID].(string)
+	if !ok {
+		return c.JSON(http.StatusOK, l)
+	}
+
+	idp, ok := s.Values[sessionKeyProvider].(string)
+	if !ok {
+		return c.JSON(http.StatusOK, l)
+	}
+
+	l.Count = 1
+	l.Auths = append(l.Auths, "id")
+	l.Included = []interface{}{
+		&AuthResource{
+			ID:  id,
+			Idp: idp,
+		},
+	}
+
+	return c.JSON(http.StatusOK, l)
+}
+
+func (a *auth) delete(c echo.Context) error {
+	state := c.Param("state")
+
+	s, err := session.Get(CookieTokenName, c)
+	if err != nil {
+		_ = c.NoContent(http.StatusInternalServerError)
+		return fmt.Errorf("unable to get session: %w", err)
+	}
+
+	id, ok := s.Values[sessionKeyID].(string)
+	if !ok {
+		return c.NoContent(http.StatusNotFound)
+	}
+
+	if id != state {
+		return c.NoContent(http.StatusNotFound)
+	}
+
+	s.Options = &sessions.Options{MaxAge: -1}
+	err = s.Save(c.Request(), c.Response())
+	if err != nil {
+		return fmt.Errorf("unable to remove auth session: %w", err)
+	}
+
+	return c.NoContent(http.StatusNoContent)
 }

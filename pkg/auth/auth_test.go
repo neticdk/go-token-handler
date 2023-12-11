@@ -57,6 +57,40 @@ func TestCreateAuth(t *testing.T) {
 	}
 }
 
+func TestListAuths(t *testing.T) {
+	e := echo.New()
+
+	sStore := &sessionStoreMock{
+		Sessions: map[string]*sessions.Session{},
+	}
+	mw := session.Middleware(sStore)
+	ses := sessions.NewSession(sStore, CookieTokenName)
+	sStore.Sessions[CookieTokenName] = ses
+
+	ses.Values[sessionKeyID] = "id"
+	ses.Values[sessionKeyProvider] = "provider"
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+
+	c := e.NewContext(req, rec)
+	mw(echo.NotFoundHandler)(c)
+
+	auth := &auth{}
+
+	err := auth.listAuth(c)
+	if assert.NoError(t, err) {
+		assert.Equal(t, http.StatusOK, rec.Code)
+		data := map[string]interface{}{}
+		assert.NoError(t, json.Unmarshal(rec.Body.Bytes(), &data))
+		ids, ok := data["auths"].([]interface{})
+		assert.True(t, ok)
+		id, ok := ids[0].(string)
+		assert.True(t, ok)
+		assert.Equal(t, "id", id)
+	}
+}
+
 func TestUpdateAuth(t *testing.T) {
 	e := echo.New()
 	state := uuid.NewString()
@@ -111,6 +145,35 @@ func TestUpdateAuth(t *testing.T) {
 	err := auth.updateAuth(c)
 	if assert.NoError(t, err) {
 		assert.Equal(t, http.StatusOK, rec.Code)
+	}
+}
+
+func TestDelete(t *testing.T) {
+	e := echo.New()
+
+	sStore := &sessionStoreMock{
+		Sessions: map[string]*sessions.Session{},
+	}
+	mw := session.Middleware(sStore)
+	ses := sessions.NewSession(sStore, CookieTokenName)
+	sStore.Sessions[CookieTokenName] = ses
+
+	ses.Values[sessionKeyID] = "id"
+	ses.Values[sessionKeyProvider] = "provider"
+
+	req := httptest.NewRequest(http.MethodDelete, "/", nil)
+	rec := httptest.NewRecorder()
+
+	c := e.NewContext(req, rec)
+	c.SetPath("/auths/:state")
+	c.SetParamNames("state")
+	c.SetParamValues("id")
+	mw(echo.NotFoundHandler)(c)
+
+	auth := &auth{}
+	err := auth.delete(c)
+	if assert.NoError(t, err) {
+		assert.Equal(t, http.StatusNoContent, rec.Code)
 	}
 }
 
