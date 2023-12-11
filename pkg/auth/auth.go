@@ -253,7 +253,7 @@ func (a *auth) listAuth(c echo.Context) error {
 	}
 
 	l.Count = 1
-	l.Auths = append(l.Auths, "id")
+	l.Auths = append(l.Auths, id)
 	l.Included = []interface{}{
 		&AuthResource{
 			ID:  id,
