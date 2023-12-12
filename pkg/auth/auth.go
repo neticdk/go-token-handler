@@ -32,7 +32,7 @@ func RegisterAuthEndpoint(e *echo.Echo, hashKey, blockKey []byte, providers map[
 
 	g := e.Group("/auths", middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     origins,
-		AllowMethods:     []string{http.MethodPut, http.MethodPost},
+		AllowMethods:     []string{http.MethodPut, http.MethodPost, http.MethodDelete},
 		AllowCredentials: true,
 	}))
 
