@@ -68,7 +68,7 @@ func (a *auth) AuthMiddleware() echo.MiddlewareFunc {
 		return func(c echo.Context) error {
 			s, err := session.Get(CookieTokenName, c)
 			if err != nil {
-				_ = c.NoContent(http.StatusInternalServerError)
+				_ = c.NoContent(http.StatusUnauthorized)
 				return fmt.Errorf("unable to get session: %w", err)
 			}
 
