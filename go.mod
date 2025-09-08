@@ -2,7 +2,7 @@ module github.com/neticdk/go-token-handler
 
 go 1.24.0
 
-toolchain go1.24.7
+toolchain go1.25.1
 
 require (
 	github.com/coreos/go-oidc/v3 v3.15.0
