@@ -9,7 +9,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/sessions v1.4.0
 	github.com/labstack/echo-contrib v0.50.1
-	github.com/labstack/echo/v4 v4.15.2
+	github.com/labstack/echo/v4 v4.15.3
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/rs/zerolog v1.35.1
 	github.com/spf13/cobra v1.10.2
