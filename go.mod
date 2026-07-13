@@ -5,7 +5,7 @@ go 1.25.0
 toolchain go1.26.5
 
 require (
-	github.com/coreos/go-oidc/v3 v3.19.0
+	github.com/coreos/go-oidc/v3 v3.20.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/sessions v1.4.0
 	github.com/labstack/echo-contrib v0.50.1
