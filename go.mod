@@ -1,6 +1,6 @@
 module github.com/neticdk/go-token-handler
 
-go 1.25.0
+go 1.26.0
 
 toolchain go1.27.1
 
@@ -13,7 +13,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/rs/zerolog v1.35.1
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/oauth2 v0.36.0
+	golang.org/x/oauth2 v0.37.0
 )
 
 require (
