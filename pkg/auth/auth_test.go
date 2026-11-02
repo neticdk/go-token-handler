@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/sessions"
 	"github.com/labstack/echo-contrib/session"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/neticdk/go-token-handler/pkg/pkce"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
