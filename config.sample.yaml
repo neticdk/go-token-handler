@@ -1,14 +1,22 @@
-listenAddr: ':8081'
-hashKey: 'bCXgBjNPIeAUDzTYKf4E2xXNZaznkyTjQT7zh/UXJcz3CsPMu3FFoxG4WqcQY3foPmKtAdexMLXJ5L3vJkn1og=='
-blockKey: 'Cl/c1FWNiCDp32/FhpGgzgqUIcLdYScHa+AiLG2gWFI='
+# Sample configuration. Keys and secrets come from the environment:
+#   HASH_KEY   base64, at least 32 bytes: openssl rand -base64 64
+#   BLOCK_KEY  base64, exactly 32 bytes:  openssl rand -base64 32
+#   CLIENT_SECRET, expanded below
+listenAddr: ":8080"
+basePath: /bff
+origins:
+  - https://inventory.example.com
+redirectURL: https://inventory.example.com/callback
+postLogoutRedirectURL: https://inventory.example.com/
+sessionPath: /var/lib/token-handler/sessions
+sessionMaxAge: 10h
 providers:
   netic:
-    clientID: inventory
-    clientSecret: ${NETIC_SECRET}
-    issuer: http://localhost:8080/realms/test
+    issuer: https://keycloak.example.com/realms/mcs
+    clientID: inventory.example.com
+    clientSecret: ${CLIENT_SECRET}
+    scopes: [profile, email]
 upstreams:
-  api: http://localhost:8086
-origins:
-  - "http://localhost:8085"
-  - "http://localhost:3000"
-redirectURL: "http://localhost:3000/customers/callback"
+  - path: /api
+    url: http://k8s-inventory-server:8087
+    stripPrefix: true
