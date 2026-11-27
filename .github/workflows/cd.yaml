@@ -1,0 +1,37 @@
+name: CD
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    name: Container Image
+    # Builds the image in a job without an OIDC token, then signs SLSA build
+    # provenance and a cosign signature for its digest in a separate job.
+    uses: neticdk/shared-github-actions/.github/workflows/container-cd.yaml@714a9565dec5f76ff9d578c0fac0c8f9db5e77de # v1.2.0
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+
+  release:
+    name: Release
+    needs: image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
+        with:
+          name: Release ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          # A tag such as v2.0.0-rc.1 is a pre-release and does not become Latest.
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true

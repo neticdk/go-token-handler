@@ -1,15 +1,16 @@
-FROM golang:1.26@sha256:c83e68f3ebb6943a2904fa66348867d108119890a2c6a2e6f07b38d0eb6c25c5 as build
+FROM --platform=$BUILDPLATFORM golang:1.27.4@sha256:5f1b98fa02fe396ebce2a0227a0e08309e11792915b9dd2e1f71053d7e7e6666 AS build
 
-WORKDIR /go/src/app
-COPY . .
+WORKDIR /src
+ARG TARGETOS
+ARG TARGETARCH
 
+COPY go.mod go.sum ./
 RUN go mod download
-RUN go vet -v ./...
-RUN go test -v ./...
 
-RUN CGO_ENABLED=0 go build -o /go/bin/app ./cmd/token-handler
+COPY . .
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags "-s -w" -o /out/token-handler ./cmd/token-handler
 
-FROM gcr.io/distroless/static@sha256:cd64bec9cec257044ce3a8dd3620cf83b387920100332f2b041f19c4d2febf93
+FROM gcr.io/distroless/static:nonroot@sha256:8ce6dd87e9823c5b48dcfb2c8604714ccb351ce59607327bcc4957448da279b5
+COPY --from=build /out/token-handler /token-handler
 USER nonroot:nonroot
-COPY --from=build --chown=nonroot:nonroot /go/bin/app /
-ENTRYPOINT ["/app"]
+ENTRYPOINT ["/token-handler"]

@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and Test
+    uses: neticdk/shared-github-actions/.github/workflows/go-ci.yaml@714a9565dec5f76ff9d578c0fac0c8f9db5e77de # v1.2.0
+    permissions:
+      contents: read
+      actions: read
+      # The coverage report comments on pull requests.
+      pull-requests: write
